@@ -131,3 +131,18 @@ networks:
 #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 #   }
 # }
+# Ako to vyzerá v praxi
+
+# Frontend:
+
+# http://localhost:8081/ (React app z Nginxu)
+
+# Backend API:
+
+# http://localhost:8081/api/... (nginx proxy → backend:8082)
+
+# Keycloak:
+
+# http://localhost:8081/auth/... (nginx proxy → keycloak:8080)
+
+# To presne sedí na tvoje nastavenie.
