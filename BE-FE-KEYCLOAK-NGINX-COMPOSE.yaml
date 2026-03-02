@@ -1,0 +1,133 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kc_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - kc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [backend_net]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:${KC_VERSION}
+    container_name: keycloak
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["start-dev", "--import-realm"]
+    volumes:
+      - ./keycloak/import:/opt/keycloak/data/import
+    ports:
+      - "8180:8080"
+    environment:
+      # DB
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: ${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_PROXY_HEADERS: xforwarded
+      # Bootstrap admin (zabráni banneru "create admin user")
+#      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN}
+#      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+
+      # Voliteľné: lepší dev logging
+      KC_LOG_LEVEL: INFO
+    restart: unless-stopped
+    networks: [backend_net]
+
+  backend:
+    build:
+      context: .
+    volumes:
+      - ./:/app
+      - ~/.m2:/root/.m2
+    environment:
+      SERVER_PORT: 8082 
+    expose:
+      - "8082"
+    networks:
+      - backend_net
+
+  proxy:
+    image: nginx:alpine
+    container_name: proxy
+    depends_on:
+#      - frontend # sem pride frontend
+      - backend # sem pride backend
+      - keycloak
+    ports:
+      - "8081:80"  # znamena z default.conf bude pocuvat vsetko co ide cez port 80 a premapuje na 8081 teda backend nieje dostupny na 8082 ale ide cez proxy nginx na porte 8081
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+    networks:
+#      - frontend_net
+      - backend_net
+
+volumes:
+  kc_pgdata:
+
+networks:
+#  frontend_net:
+  backend_net:
+
+# VYSVETLENIE 
+# location /api/ {
+#     proxy_pass http://backend:8082/;
+# } 
+# znamena
+# localhost:8081/api/hello
+#         ↓
+# nginx (80)
+#         ↓
+# backend:8082/hello
+# Celý flow krok po kroku
+
+# Ty zadáš:
+
+# http://localhost:8081/api/hello
+
+# Docker presmeruje:
+
+# 8081 (host) → 80 (nginx kontajner)
+
+# Nginx vidí /api/hello a povie:
+
+# OK, pošli to na backend:8082
+
+# Backend v dockeri beží na:
+
+# 8082
+
+# Backend odpovie → nginx to vráti tebe.
+
+#   server {
+#   listen 80;
+
+#  # Spring Boot API cez /api
+#     location /api/ {
+#       proxy_pass http://backend:8082/;
+#       proxy_set_header Host $host;
+#       proxy_set_header X-Real-IP $remote_addr;
+#       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#       proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+
+#   # Keycloak (UI + OIDC endpoints)
+#   location /auth/ {
+#     proxy_pass http://keycloak:8080/;
+#     proxy_set_header Host $host;
+#     proxy_set_header X-Forwarded-Proto $scheme;
+#     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#   }
+# }
