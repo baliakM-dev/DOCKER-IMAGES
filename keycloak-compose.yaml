@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kc_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - kc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:${KC_VERSION}
+    container_name: keycloak
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["start-dev", "--import-realm"]
+    volumes:
+      - ./keycloak/import:/opt/keycloak/data/import
+    ports:
+      - "8180:8080"
+    environment:
+      # DB
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: ${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+
+      # Voliteľné: lepší dev logging
+      KC_LOG_LEVEL: INFO
+    restart: unless-stopped
+
+volumes:
+  kc_pgdata:
+
+# 1. Vytvor .env a pridaj premenne {KC_VERSION, POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, KC_ADMIN, KC_ADMIN_PASSWORD}
+# 2. Spusti docker compose keycloak je dostupny na porte 8180
+#  Vytvor admin usera a pridaj mu prava, nasledne mozes zmazat temporary admina. 
+# zakomentuj riadok 37 a 38 pri importe realmu by vznikol konflikt insert admina ktory uz v DB existuje
+# Export realmu pouzi keycloak konzolu zadaj prikaz:
+# mkdir keycloak/import | Out-Null
+
+# docker compose stop keycloak
+#docker compose run --rm `
+#  -v ${PWD}\keycloak\import:/export `
+#  keycloak export --dir /export --users skip
+# docker compose up -d keycloak
