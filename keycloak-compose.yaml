@@ -51,8 +51,16 @@ volumes:
 # Export realmu pouzi keycloak konzolu zadaj prikaz:
 # mkdir keycloak/import | Out-Null
 
+# Pozor toto neimportne userov
 # docker compose stop keycloak
 #docker compose run --rm `
 #  -v ${PWD}\keycloak\import:/export `
 #  keycloak export --dir /export --users skip
+# docker compose up -d keycloak
+
+# po vytvoreni admina master realmu v keycloaku spusti 
+#docker compose stop keycloak
+#docker compose run --rm `
+#  -v "${PWD}\keycloak\import:/export" `
+# keycloak export --dir /export --realm master --users realm_file
 # docker compose up -d keycloak
