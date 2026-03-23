@@ -146,3 +146,16 @@ networks:
 # http://localhost:8081/auth/... (nginx proxy → keycloak:8080)
 
 # To presne sedí na tvoje nastavenie.
+
+// Postup export realmu
+1. prihlas sa
+   docker compose exec keycloak sh -lc "/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user admin --password 'TVOJE_HESLO' && /opt/keycloak/bin/kcadm.sh get realms"
+2. realmy
+   docker compose exec keycloak sh -lc "/opt/keycloak/bin/kcadm.sh get realms | grep '\"realm\"'"
+3. export realmu
+   docker compose exec keycloak sh -lc "rm -rf /tmp/export && /opt/keycloak/bin/kc.sh export --dir /tmp/export --realm master --users realm_file && ls -la /tmp/export"
+4. export realmu do svojho hostu
+   docker cp keycloak:/tmp/export ./keycloak-export
+
+EXPORT VSETKY REALMY
+docker compose exec keycloak sh -lc "rm -rf /tmp/export && /opt/keycloak/bin/kc.sh export --dir /tmp/export --users realm_file && ls -la /tmp/export"
