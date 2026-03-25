@@ -1,0 +1,20 @@
+services:
+  redis:
+    image: redis/redis-stack:latest
+    container_name: dev-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"   # Redis
+      - "8001:8001"   # Redis UI
+    environment:
+      REDIS_ARGS: "--appendonly yes --requirepass devredis123"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a devredis123 ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  redis-data:
